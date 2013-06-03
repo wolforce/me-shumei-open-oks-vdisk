@@ -1,0 +1,24 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical" >
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="微盘系统规定签到时转发微博可获得50M空间。可选择是否转发。"
+        android:textColor="#3f3f3f"
+        android:textSize="12sp" />
+
+        <CheckBox
+            android:id="@+id/cb_sendweibo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:button="@drawable/checkbox_selector"
+            android:paddingLeft="25dp"
+            android:checked="true"
+            android:text="是否转发微博？"
+            android:textColor="#3f3f3f" />
+
+</LinearLayout>
