@@ -129,11 +129,66 @@ public class Signin extends CommonData {
 				cookieStore = ((AbstractHttpClient) httpClient).getCookieStore();
 			}
 			
-			//System.out.println(clientStrResult);
 			if (clientStrResult.contains("登录名或密码错误")) {
 				return new String[]{"false", "登录名或密码错误"};
 			} else if (clientStrResult.contains("登录次数过于频繁")) {
 				return new String[]{"false", "登录次数过于频繁，"};
+			}
+			
+			//判断是否需要输入验证码
+			if (clientStrResult.contains("请输入验证码")) {
+				doc = Jsoup.parse(clientStrResult);
+				form = doc.select("form").first();
+				action = form.attr("action");
+				pwdFieldName = form.getElementsByAttributeValue("type", "password").attr("name");
+				backURL = form.getElementsByAttributeValue("name", "backURL").val();
+				vk = form.getElementsByAttributeValue("name", "vk").val();
+				String captchaUrl = form.select("img").first().attr("src");
+				String capId = form.getElementsByAttributeValue("name", "capId").val();
+				loginSubmitUrl = "https://login.weibo.cn/login/" + action;
+				
+				if (CaptchaUtil.showCaptcha(captchaUrl, UA_ANDROID, cookies, "新浪微盘", user, "登录需要验证码")) {
+					if (CaptchaUtil.captcha_input.length() > 0) {
+						//获取验证码成功，可以用CaptchaUtil.captcha_input继续做其他事了
+						//Don't need to do anything...
+					} else {
+						//用户取消输入验证码
+						this.resultFlag = "false";
+						this.resultStr = "用户放弃输入验证码，登录失败";
+						return new String[]{this.resultFlag,this.resultStr};
+					}
+				} else {
+					//拉取验证码失败，签到失败
+					this.resultFlag = "false";
+					this.resultStr = "拉取验证码失败，无法登录";
+					return new String[]{this.resultFlag,this.resultStr};
+				}
+				
+				//提交登录数据
+				postDatas = new ArrayList<NameValuePair>();
+				postDatas.add(new BasicNameValuePair("mobile", user));
+				postDatas.add(new BasicNameValuePair(pwdFieldName, pwd));
+				postDatas.add(new BasicNameValuePair("code", CaptchaUtil.captcha_input));
+				postDatas.add(new BasicNameValuePair("remember", ""));
+				postDatas.add(new BasicNameValuePair("backURL", backURL));
+				postDatas.add(new BasicNameValuePair("backTitle", "手机新浪网"));
+				postDatas.add(new BasicNameValuePair("tryCount", ""));
+				postDatas.add(new BasicNameValuePair("vk", vk));
+				postDatas.add(new BasicNameValuePair("capId", capId));
+				postDatas.add(new BasicNameValuePair("submit", "登录"));
+				
+				//<body><div class="s"></div><div class="c">登录成功!返回登录前的页面...</div><div class="c">如果没有自动跳转,请<a href="http://login.weibo.cn/login/setssocookie/?backUrl=http%3A%2F%2Fvdisk.weibo.com%2Fwap%2Faccount%2Flogin%3F&amp;loginpage=&amp;gsid=4KwkCpOz1ZWKCNseQLsya94lLfv&amp;PHPSESSID=&amp;vt=4">点击这里</a>.</div><div class="s"></div></body>
+				httpPost = new HttpPost(loginSubmitUrl);
+				httpPost.setEntity(new UrlEncodedFormEntity(postDatas, "UTF-8"));
+				httpClient = HttpUtil.getNewHttpClient();
+				HttpProtocolParams.setUserAgent(httpClient.getParams(), UA_ANDROID);
+				HttpConnectionParams.setSoTimeout(httpClient.getParams(), TIME_OUT);
+				HttpConnectionParams.setConnectionTimeout(httpClient.getParams(), TIME_OUT);
+				httpResponse = httpClient.execute(httpPost);
+				if (httpResponse.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+					clientStrResult = EntityUtils.toString(httpResponse.getEntity(), "UTF-8");
+					cookieStore = ((AbstractHttpClient) httpClient).getCookieStore();
+				}
 			}
 			
 			//把HttpClient的Cookies转化为Jsoup用的Cookies
@@ -142,18 +197,19 @@ public class Signin extends CommonData {
 			//获取单点登录地址
 			doc = Jsoup.parse(clientStrResult);
 			ssoUrl = doc.select("a").first().attr("href");
-			System.out.println(ssoUrl);
+			//System.out.println(ssoUrl);
 
 			//访问单点登录网址获取Cookies
 			res = Jsoup.connect(ssoUrl).cookies(cookies).userAgent(UA_CHROME).timeout(TIME_OUT).referrer(loginPageUrl).ignoreContentType(true).method(Method.GET).execute();
 			cookies.putAll(res.cookies());
+			//System.out.println(cookies);
 			
 			//先检查今天是否已经签过到
 			//false
 			//{"time":"1365335551","size":"346","star":"4","sent_weibo":"0","sent_weibo_size":"50","date":"20130407","quota":"35488","uid":"31951221","sina_uid":"2161697961"}
-			res = Jsoup.connect(signinfoUrl).cookies(cookies).userAgent(UA_CHROME).timeout(TIME_OUT).referrer(loginPageUrl).ignoreContentType(true).method(Method.GET).execute();
+			res = Jsoup.connect(signinfoUrl).cookies(cookies).userAgent(UA_ANDROID).timeout(TIME_OUT).referrer(loginPageUrl).ignoreContentType(true).method(Method.GET).execute();
 			cookies.putAll(res.cookies());
-			System.out.println(res.body());
+			//System.out.println(res.body());
 			String signinfoStr = res.body();
 			if(signinfoStr.equals("false"))
 			{

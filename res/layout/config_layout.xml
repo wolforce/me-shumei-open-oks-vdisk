@@ -17,7 +17,6 @@
             android:layout_marginTop="5dp"
             android:button="@drawable/checkbox_selector"
             android:paddingLeft="25dp"
-            android:checked="true"
             android:text="是否转发微博？"
             android:textColor="#3f3f3f" />
 
