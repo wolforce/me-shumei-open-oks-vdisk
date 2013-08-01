@@ -3,7 +3,6 @@ package me.shumei.open.oks.vdisk;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
@@ -17,15 +16,11 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.cookie.Cookie;
 import org.apache.http.impl.client.AbstractHttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.conn.DefaultClientConnection;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.util.EntityUtils;
-import org.json.JSONException;
 import org.json.JSONObject;
 import org.jsoup.Connection.Method;
 import org.jsoup.Connection.Response;
@@ -70,9 +65,9 @@ public class Signin extends CommonData {
 			String loginPageUrl = "http://vdisk.weibo.com/wap/account/login";
 			String loginSubmitUrl = "";
 			String ssoUrl = "";//单点登录URL
-			String signinfoUrl = "http://vdisk.weibo.com/wap/api/weipan/checkin/checkin_info";//检查签到状态的URL
-			String siginUrl = "http://vdisk.weibo.com/wap/api/weipan/checkin/checkin";
-			String sendWeiBoUrl = "http://vdisk.weibo.com/wap/api/weipan/checkin/checkin_send_weibo";
+			String signinfoUrl = "http://vdisk.weibo.com/wap/api/weipan/2/checkin/checkin_info";//检查签到状态的URL
+			String siginUrl = "http://vdisk.weibo.com/wap/api/weipan/2/checkin/checkin";
+			String sendWeiBoUrl = "http://vdisk.weibo.com/wap/api/weipan/2/checkin/checkin_send_weibo";
 			
 			//HttpClient的数据
 			String clientStrResult = "";
@@ -128,6 +123,7 @@ public class Signin extends CommonData {
 				clientStrResult = EntityUtils.toString(httpResponse.getEntity(), "UTF-8");
 				cookieStore = ((AbstractHttpClient) httpClient).getCookieStore();
 			}
+			
 			
 			if (clientStrResult.contains("登录名或密码错误")) {
 				return new String[]{"false", "登录名或密码错误"};
@@ -198,11 +194,22 @@ public class Signin extends CommonData {
 			doc = Jsoup.parse(clientStrResult);
 			ssoUrl = doc.select("a").first().attr("href");
 			//System.out.println(ssoUrl);
-
+			
 			//访问单点登录网址获取Cookies
-			res = Jsoup.connect(ssoUrl).cookies(cookies).userAgent(UA_CHROME).timeout(TIME_OUT).referrer(loginPageUrl).ignoreContentType(true).method(Method.GET).execute();
-			cookies.putAll(res.cookies());
-			//System.out.println(cookies);
+			httpGet = new HttpGet(ssoUrl);
+			httpClient = HttpUtil.getNewHttpClient();
+			HttpProtocolParams.setUserAgent(httpClient.getParams(), UA_ANDROID);
+			HttpConnectionParams.setSoTimeout(httpClient.getParams(), TIME_OUT);
+			HttpConnectionParams.setConnectionTimeout(httpClient.getParams(), TIME_OUT);
+			httpResponse = httpClient.execute(httpGet);
+			if (httpResponse.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+				//取得返回的字符串
+				clientStrResult = EntityUtils.toString(httpResponse.getEntity(), "UTF-8");
+				cookieStore = ((AbstractHttpClient) httpClient).getCookieStore();
+			}
+			cookies.putAll(HttpUtil.CookieStroeToHashMap(cookieStore));
+			//System.out.println(clientStrResult);
+			
 			
 			//先检查今天是否已经签过到
 			//false
