@@ -1,7 +1,6 @@
 package me.shumei.open.oks.vdisk;
 
 import java.io.IOException;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -133,6 +132,7 @@ public class Signin extends CommonData {
             HttpPost httpPost = new HttpPost(loginSubmitUrl);
             httpPost.setEntity(new UrlEncodedFormEntity(postDatas, "UTF-8"));
             httpClient = HttpUtil.getNewHttpClient();
+            //httpclient.getParams().setParameter(ClientPNames.COOKIE_POLICY, CookiePolicy.BEST_MATCH);
             HttpProtocolParams.setUserAgent(httpClient.getParams(), UA_ANDROID);
             HttpConnectionParams.setSoTimeout(httpClient.getParams(), TIME_OUT);
             HttpConnectionParams.setConnectionTimeout(httpClient.getParams(), TIME_OUT);
@@ -210,11 +210,13 @@ public class Signin extends CommonData {
             // 把HttpClient的Cookies转化为Jsoup用的Cookies
             cookies.putAll(HttpUtil.CookieStroeToHashMap(cookieStore));
 
+            /* 废弃，2014-8-21 22:59:02
             // 获取单点登录地址
             doc = Jsoup.parse(clientStrResult);
             ssoUrl = doc.select("a").first().attr("href");
             // System.out.println(ssoUrl);
 
+            System.out.println(ssoUrl);
             // 访问单点登录网址获取Cookies
             httpGet = new HttpGet(ssoUrl);
             httpClient = HttpUtil.getNewHttpClient();
@@ -229,29 +231,38 @@ public class Signin extends CommonData {
             }
             cookies.putAll(HttpUtil.CookieStroeToHashMap(cookieStore));
             // System.out.println(clientStrResult);
+            */
 
             // 先检查今天是否已经签过到
             // false
             // {"time":"1365335551","size":"346","star":"4","sent_weibo":"0","sent_weibo_size":"50","date":"20130407","quota":"35488","uid":"31951221","sina_uid":"2161697961"}
             res = Jsoup.connect(signinfoUrl).cookies(cookies).userAgent(UA_ANDROID).timeout(TIME_OUT).referrer(loginPageUrl).ignoreContentType(true).method(Method.GET).execute();
             cookies.putAll(res.cookies());
-            // System.out.println(res.body());
             String signinfoStr = res.body();
             if (signinfoStr.equals("false")) {
                 // 今天还没签过到
                 // 访问签到链接，并获取签到返回的Json数据
                 // {"error_code":"C1","error":"\u5df2\u7ecf\u7b7e\u5230\u8fc7\u4e86"}
-                // //今天已签过到
-                // [346,4] //获得346M空间，4星级运气
-                res = Jsoup.connect(siginUrl).cookies(cookies).userAgent(UA_ANDROID).timeout(TIME_OUT).referrer(ssoUrl).ignoreContentType(true).method(Method.GET).execute();
+                // 今天已签过到，则返回的信息有可能是两种格式
+                // 格式一：[346,4] //获得346M空间，4星级运气
+                // 格式二：{"0":1024,"1":5,"msg":"截止到目前，微盘上现在公开分享的文件已经超过50,000,000啦！我不能out，我也要努力贡献一个！（ˉ艸ˉ）#新浪微盘3岁啦#！免费赠送1G空间哦！戳右边点签到http:\/\/vdisk.weibo.com\/file\/list拿空间，晒排名！"}
+                res = Jsoup.connect(siginUrl).cookies(cookies).userAgent(UA_ANDROID).timeout(TIME_OUT).referrer(loginPageUrl).ignoreContentType(true).method(Method.GET).execute();
                 cookies.putAll(res.cookies());
                 String signReturnStr = res.body();
                 if (signReturnStr.contains("error_code\":\"C1")) {
                     resultFlag = "true";
                     resultStr = "今天已签过到";
                 } else {
-                    String signedSpaceStr = signReturnStr.replace("[", "").replace("]", "").split(",")[0];
-                    int signedSpace = Integer.valueOf(signedSpaceStr);// 获得的容量
+                    String signedSpaceStr = "";
+                    int signedSpace = 0;
+                    if (signReturnStr.startsWith("[")) {
+                        signedSpaceStr = signReturnStr.replace("[", "").replace("]", "").split(",")[0];
+                        signedSpace = Integer.valueOf(signedSpaceStr);// 获得的容量
+                    } else {
+                        JSONObject jsonObj = new JSONObject(signReturnStr);
+                        signedSpace = jsonObj.optInt("0");
+                    }
+                    System.out.println(signReturnStr);
 
                     // 获取配置信息里是否需要转发微博的配置
                     boolean isSendWeibo = true;
